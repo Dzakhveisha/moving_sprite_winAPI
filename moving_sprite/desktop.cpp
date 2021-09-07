@@ -2,14 +2,16 @@
 #include <string.h>
 #include <tchar.h>
 
-// The main window class name.
-static TCHAR szWindowClass[] = _T("DesktopApp");
+// The main window class name
+static TCHAR szWindowClass[] = _T("DesktopAppClass");
+// The string that appears in the application's title bar
+static TCHAR szTitle[] = _T("Moving sprite Window");
 
-// The string that appears in the application's title bar.
-static TCHAR szTitle[] = _T("Windows Desktop Guided Tour Application");
+// brushes
+const HBRUSH RECT_BRUSH = CreateSolidBrush(RGB(255, 255, 0));
+const HBRUSH BACKGROUND_BRUSH = CreateSolidBrush(RGB(175, 238, 238));
 
-LRESULT CALLBACK WndProc(HWND hWnd, UINT message,
-    WPARAM wParam, LPARAM lParam);
+LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 
 int WINAPI WinMain(
     _In_ HINSTANCE hInstance,
@@ -21,27 +23,28 @@ int WINAPI WinMain(
 
     wcex.cbSize = sizeof(WNDCLASSEX);
     wcex.style = CS_DBLCLKS;
-    wcex.lpfnWndProc = WndProc;
+    wcex.lpfnWndProc = WndProc; // function foe msg handling
     wcex.cbClsExtra = 0;
     wcex.cbWndExtra = 0;
     wcex.hInstance = hInstance;
     wcex.hIcon = LoadIcon(NULL, IDI_APPLICATION);
     wcex.hCursor = LoadCursor(NULL, IDC_ARROW);
-    wcex.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
+    wcex.hbrBackground = BACKGROUND_BRUSH;
     wcex.lpszMenuName = NULL;
     wcex.lpszClassName = szWindowClass;
     wcex.hIconSm = wcex.hIcon;
 
-    RegisterClassEx(&wcex);
+    RegisterClassEx(&wcex); // register WNDCLASSEX
 
-    hWnd = CreateWindow(szWindowClass, szTitle,
+    hWnd = CreateWindow(szWindowClass, szTitle,  // window descriptor
         WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, 0,
         CW_USEDEFAULT, 0, NULL, NULL, hInstance, NULL);
 
     ShowWindow(hWnd, nCmdShow);
     UpdateWindow(hWnd);
 
-    while (GetMessage(&msg, NULL, 0, 0))
+    //loop to listen for the messages that Windows sends
+    while (GetMessage(&msg, NULL, 0, 0)) 
     {
         TranslateMessage(&msg);
         DispatchMessage(&msg);
@@ -50,21 +53,87 @@ int WINAPI WinMain(
     return (int)msg.wParam;
  }                
 
-LRESULT CALLBACK WndProc(HWND hWnd, UINT message,
-    WPARAM wParam, LPARAM lParam)
+LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
+    static HBRUSH hbrush = RECT_BRUSH;
+
+    static int cxClient, cyClient;
+
+    static POINT ptCenter; // centre of object
+    static int ellRadius = 20;
+
     switch (message)
-    {
-    case WM_LBUTTONDBLCLK:
-        MessageBox(hWnd, szTitle, szTitle, MB_OK);
+    {    
+        case WM_CREATE: 
+        {
+            //myBmp = PngToBitmap(picture);
         break;
-    case WM_DESTROY:
-        PostQuitMessage(0);
+    }
+
+        case WM_SIZE:
+        {
+            cxClient = LOWORD(lParam);
+            cyClient = HIWORD(lParam);
+
+            ptCenter.x = cxClient / 2;
+            ptCenter.y = cyClient / 2;
+        }
         break;
-    default:
-        return DefWindowProc(hWnd, message, wParam, lParam);
+
+        case WM_PAINT:
+        {
+            PAINTSTRUCT ps;
+            HDC hdc = BeginPaint(hWnd, &ps);
+
+            SelectObject(hdc, hbrush);
+            Ellipse(hdc,
+                ptCenter.x - ellRadius,
+                ptCenter.y + ellRadius,
+                ptCenter.x + ellRadius,
+                ptCenter.y - ellRadius);
+            
+            EndPaint(hWnd, &ps);
+        }
+        break;
+   
+        case WM_MOUSEMOVE:
+        {
+            ptCenter.x = LOWORD(lParam);
+            ptCenter.y = HIWORD(lParam);
+            InvalidateRect(hWnd, NULL, TRUE);
+        }
+        break;
+
+        case WM_KEYDOWN:
+        {
+            switch (wParam)
+            {
+            case VK_LEFT: 
+                ptCenter.x -= 10;
+                break;
+            case VK_RIGHT:
+                ptCenter.x += 10;
+                break;
+            case VK_UP:
+                ptCenter.y -= 10;
+                break;
+            case VK_DOWN:
+                ptCenter.y += 10;
+                break;
+            }
+            InvalidateRect(hWnd, NULL, TRUE);
+        }
+        break;
+
+        case WM_DESTROY:
+            PostQuitMessage(0);
+            break;
+
+        default:
+            return DefWindowProc(hWnd, message, wParam, lParam);
     }
     return 0;
 }
+
 
 
