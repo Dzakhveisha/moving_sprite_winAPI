@@ -125,6 +125,19 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         }
         break;
 
+        case WM_MOUSEWHEEL: {
+            int wheelDelta = GET_WHEEL_DELTA_WPARAM(wParam);
+            if (GET_KEYSTATE_WPARAM(wParam) == MK_SHIFT)
+            {
+                wheelDelta < 0 ? ptCenter.x -= 10 : ptCenter.x += 10;
+            }
+            else {
+                wheelDelta < 0 ? ptCenter.y -= 10 : ptCenter.y += 10;
+            }
+            InvalidateRect(hWnd, NULL, TRUE);
+        }
+        break;
+
         case WM_DESTROY:
             PostQuitMessage(0);
             break;
