@@ -1,17 +1,25 @@
 #include <windows.h>
 #include <string.h>
 #include <tchar.h>
+#include <gdiplus.h>
 
-// The main window class name
-static TCHAR szWindowClass[] = _T("DesktopAppClass");
-// The string that appears in the application's title bar
-static TCHAR szTitle[] = _T("Moving sprite Window");
+using namespace Gdiplus;
+#pragma comment (lib,"Gdiplus.lib")
+
+// string const
+static const TCHAR szWindowClass[] = _T("DesktopAppClass");
+static const TCHAR szTitle[] = _T("Moving sprite Window");
+static WCHAR pictureName[] = L"donut.png";
 
 // brushes
 const HBRUSH RECT_BRUSH = CreateSolidBrush(RGB(255, 255, 0));
 const HBRUSH BACKGROUND_BRUSH = CreateSolidBrush(RGB(175, 238, 238));
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
+void drawBmp(HDC hdc, POINT ptCenter, HBITMAP hBitmap);
+HBITMAP PngToBitmap(WCHAR* pngFilePath);
+
+WNDCLASSEX wcex;
 
 int WINAPI WinMain(
     _In_ HINSTANCE hInstance,
@@ -19,7 +27,7 @@ int WINAPI WinMain(
     _In_ LPSTR     lpCmdLine,
     _In_ int       nCmdShow)
 {
-    WNDCLASSEX wcex; HWND hWnd; MSG msg;
+    HWND hWnd; MSG msg;
 
     wcex.cbSize = sizeof(WNDCLASSEX);
     wcex.style = CS_DBLCLKS;
@@ -56,6 +64,9 @@ int WINAPI WinMain(
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     static HBRUSH hbrush = RECT_BRUSH;
+    static HBITMAP objectBmp = NULL;
+
+    static bool isImage = false;
 
     static int cxClient, cyClient;
 
@@ -66,10 +77,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     {    
         case WM_CREATE: 
         {
-            //myBmp = PngToBitmap(picture);
-        break;
-    }
-
+            hbrush = RECT_BRUSH;
+            objectBmp = PngToBitmap(pictureName);
+            break;
+        }
         case WM_SIZE:
         {
             cxClient = LOWORD(lParam);
@@ -86,12 +97,17 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             HDC hdc = BeginPaint(hWnd, &ps);
 
             SelectObject(hdc, hbrush);
-            Ellipse(hdc,
-                ptCenter.x - ellRadius,
-                ptCenter.y + ellRadius,
-                ptCenter.x + ellRadius,
-                ptCenter.y - ellRadius);
-            
+            if (isImage) {
+                drawBmp(hdc, ptCenter, objectBmp);
+            }
+            else {
+                Ellipse(hdc,
+                    ptCenter.x - ellRadius,
+                    ptCenter.y + ellRadius,
+                    ptCenter.x + ellRadius,
+                    ptCenter.y - ellRadius);
+            }
+
             EndPaint(hWnd, &ps);
         }
         break;
@@ -120,6 +136,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             case VK_DOWN:
                 ptCenter.y += 10;
                 break;
+            case VK_SPACE:
+                isImage == false ? isImage = true : isImage = false;
+                break;
             }
             InvalidateRect(hWnd, NULL, TRUE);
         }
@@ -147,6 +166,60 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     }
     return 0;
 }
+
+void drawBmp(HDC hdc, POINT ptCenter, HBITMAP hBitmap) {
+    HBITMAP hNewBmp ;
+
+    HDC compDc;
+    BITMAP bmp;
+    int bmpWidth, bmpHeight;
+
+    compDc = CreateCompatibleDC(hdc);
+
+    hNewBmp = (HBITMAP)SelectObject(compDc, hBitmap);
+
+    if (hNewBmp) {
+        SetMapMode(compDc, GetMapMode(hdc));
+        GetObject(hBitmap, sizeof(BITMAP), (LPSTR)&bmp);
+
+        bmpWidth = bmp.bmWidth;
+        bmpHeight = bmp.bmHeight;
+
+        POINT bmpSize;
+        bmpSize.x = bmpWidth;
+        bmpSize.y = bmpHeight;
+
+        DPtoLP(hdc, &bmpSize, 1);
+
+        POINT point;
+        point.x = 0;
+        point.y = 0;
+
+        DPtoLP(compDc, &point, 1);
+        BitBlt(hdc, ptCenter.x - bmpWidth/2, ptCenter.y - bmpHeight/2, bmpWidth, bmpHeight, compDc, point.x, point.y, SRCCOPY);
+        SelectObject(compDc, hNewBmp);
+    }
+
+    DeleteDC(compDc);
+}
+
+HBITMAP PngToBitmap(WCHAR* pngFilePath) {
+    GdiplusStartupInput gdi;
+    ULONG_PTR token;
+    GdiplusStartup(&token, &gdi, NULL);
+    Color Back = Color(Color::MakeARGB(0, 175, 238, 238));
+    HBITMAP convertedBitmap = NULL;
+    Bitmap* Bitmap = Bitmap::FromFile(pngFilePath, false);
+    if (Bitmap) {
+        Bitmap->GetHBITMAP(Back, &convertedBitmap);
+
+        delete Bitmap;
+    }
+    GdiplusShutdown(token);
+    return convertedBitmap;
+}
+
+
 
 
 
