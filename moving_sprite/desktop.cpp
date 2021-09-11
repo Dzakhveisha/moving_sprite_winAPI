@@ -2,6 +2,9 @@
 #include <string.h>
 #include <tchar.h>
 #include <gdiplus.h>
+#include <corecrt_math.h>
+
+#define PI 3.14159265 
 
 using namespace Gdiplus;
 #pragma comment (lib,"Gdiplus.lib")
@@ -12,14 +15,15 @@ static const TCHAR szTitle[] = _T("Moving sprite Window");
 static WCHAR pictureName[] = L"donut.png";
 
 // brushes
-const HBRUSH RECT_BRUSH = CreateSolidBrush(RGB(255, 255, 0));
+const HBRUSH ELLIPSE_BRUSH = CreateSolidBrush(RGB(255, 255, 0));
 const HBRUSH BACKGROUND_BRUSH = CreateSolidBrush(RGB(175, 238, 238));
+
+static const int IDT_ANIMATION_TIMER = 1;
+WNDCLASSEX wcex; // window class
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 void drawBmp(HDC hdc, POINT ptCenter, HBITMAP hBitmap);
 HBITMAP PngToBitmap(WCHAR* pngFilePath);
-
-WNDCLASSEX wcex;
 
 int WINAPI WinMain(
     _In_ HINSTANCE hInstance,
@@ -63,32 +67,48 @@ int WINAPI WinMain(
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    static HBRUSH hbrush = RECT_BRUSH;
-    static HBITMAP objectBmp = NULL;
-
-    static bool isImage = false;
+    static const int ellRadius = 20;
+    static const int ImageRadius = 70;
 
     static int cxClient, cyClient;
 
-    static POINT ptCenter; // centre of object
-    static int ellRadius = 20;
+    static HBRUSH hbrush = ELLIPSE_BRUSH;
+    static HBITMAP objectBmp = PngToBitmap(pictureName);
+    static POINT ptCenter = {100, 100};
+    static bool isImage = false;
+   
+    static int deltaX;
+    static int deltaY;
+    static bool isAnimation = false;
 
     switch (message)
     {    
-        case WM_CREATE: 
-        {
-            hbrush = RECT_BRUSH;
-            objectBmp = PngToBitmap(pictureName);
-            break;
-        }
         case WM_SIZE:
         {
             cxClient = LOWORD(lParam);
             cyClient = HIWORD(lParam);
-
-            ptCenter.x = cxClient / 2;
-            ptCenter.y = cyClient / 2;
+            InvalidateRect(hWnd, NULL, TRUE);
         }
+        break;
+
+        case WM_TIMER:
+        {
+            if (wParam == IDT_ANIMATION_TIMER) {
+                int objectRadius = isImage ? ImageRadius : ellRadius;
+                ptCenter.x += deltaX;
+                ptCenter.y += deltaY;
+                
+                if (ptCenter.x > cxClient - objectRadius || ptCenter.x < objectRadius) {
+                    ptCenter.x -= deltaX;
+                    deltaX = -deltaX; 
+                }
+                if (ptCenter.y > cyClient - objectRadius || ptCenter.y < objectRadius) {
+                    ptCenter.y -= deltaY;
+                    deltaY = -deltaY;
+                }
+            }
+            InvalidateRect(hWnd, NULL, TRUE);
+         }
         break;
 
         case WM_PAINT:
@@ -107,7 +127,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                     ptCenter.x + ellRadius,
                     ptCenter.y - ellRadius);
             }
-
             EndPaint(hWnd, &ps);
         }
         break;
@@ -139,6 +158,19 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             case VK_SPACE:
                 isImage == false ? isImage = true : isImage = false;
                 break;
+            case VK_RETURN:
+                if (isAnimation) {
+                    isAnimation = false;
+                    KillTimer(hWnd, IDT_ANIMATION_TIMER);
+                }
+                else {
+                    int direction = rand() % 360; 
+                    deltaX = 10.0 * cos(direction * PI / 180);
+                    deltaY = 10.0 * sin(direction * PI / 180);
+                    SetTimer(hWnd, IDT_ANIMATION_TIMER, 50, (TIMERPROC)NULL);
+                    isAnimation = true;
+                }
+                break;
             }
             InvalidateRect(hWnd, NULL, TRUE);
         }
@@ -169,13 +201,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 void drawBmp(HDC hdc, POINT ptCenter, HBITMAP hBitmap) {
     HBITMAP hNewBmp ;
-
     HDC compDc;
     BITMAP bmp;
     int bmpWidth, bmpHeight;
 
     compDc = CreateCompatibleDC(hdc);
-
     hNewBmp = (HBITMAP)SelectObject(compDc, hBitmap);
 
     if (hNewBmp) {
@@ -212,7 +242,6 @@ HBITMAP PngToBitmap(WCHAR* pngFilePath) {
     Bitmap* Bitmap = Bitmap::FromFile(pngFilePath, false);
     if (Bitmap) {
         Bitmap->GetHBITMAP(Back, &convertedBitmap);
-
         delete Bitmap;
     }
     GdiplusShutdown(token);
