@@ -141,19 +141,28 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
         case WM_KEYDOWN:
         {
+            int objectRadius = isImage ? ImageRadius : ellRadius;
             switch (wParam)
             {
             case VK_LEFT: 
-                ptCenter.x -= 10;
+                if (ptCenter.x > objectRadius) {
+                    ptCenter.x -= 10;
+                }
                 break;
             case VK_RIGHT:
-                ptCenter.x += 10;
+                if (ptCenter.x < cxClient - objectRadius) {
+                    ptCenter.x += 10;
+                }
                 break;
             case VK_UP:
-                ptCenter.y -= 10;
+                if (ptCenter.y > objectRadius) {
+                    ptCenter.y -= 10;
+                }
                 break;
             case VK_DOWN:
-                ptCenter.y += 10;
+                if (ptCenter.y < cyClient - objectRadius) {
+                    ptCenter.y += 10;
+                }
                 break;
             case VK_SPACE:
                 isImage == false ? isImage = true : isImage = false;
@@ -177,13 +186,21 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         break;
 
         case WM_MOUSEWHEEL: {
+            int objectRadius = isImage ? ImageRadius : ellRadius;
             int wheelDelta = GET_WHEEL_DELTA_WPARAM(wParam);
+            POINT tempCenter = ptCenter;
             if (GET_KEYSTATE_WPARAM(wParam) == MK_SHIFT)
             {
                 wheelDelta < 0 ? ptCenter.x -= 10 : ptCenter.x += 10;
+                if (ptCenter.x > cxClient - objectRadius || ptCenter.x < objectRadius) {
+                    ptCenter = tempCenter;
+                }
             }
             else {
                 wheelDelta < 0 ? ptCenter.y -= 10 : ptCenter.y += 10;
+                if (ptCenter.y > cyClient - objectRadius || ptCenter.y < objectRadius) {
+                    ptCenter = tempCenter;
+                }
             }
             InvalidateRect(hWnd, NULL, TRUE);
         }
